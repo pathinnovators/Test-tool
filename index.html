@@ -94,22 +94,31 @@
       }
     }
 
-    function generateAnswer(question) {
-      let answer = "I am not sure about that.";
+    <script>
+async function generateAnswer(question) {
+  answerDiv.innerText = "Thinking... ⚡";
 
-      if (question.includes("your name")) {
-        answer = "My name is Voice Assistant.";
-      } 
-      else if (question.includes("time")) {
-        answer = "Current time is " + new Date().toLocaleTimeString();
-      }
-      else if (question.includes("date")) {
-        answer = "Today is " + new Date().toDateString();
-      }
+  const response = await fetch("https://YOUR_API_URL/ask", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ question })
+  });
 
-      answerDiv.innerText = answer;
-      speak(answer);
-    }
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  answerDiv.innerText = "";
+
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+
+    const text = decoder.decode(value);
+    answerDiv.innerText += text;
+  }
+
+  speak(answerDiv.innerText);
+}
+</script>
 
     function speak(text) {
       const speech = new SpeechSynthesisUtterance(text);
@@ -119,4 +128,5 @@
   </script>
 
 </body>
+
 </html>
