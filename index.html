@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Voice Assistant Web App</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      background: #0f172a;
+      color: white;
+      padding: 40px;
+    }
+
+    h1 {
+      margin-bottom: 20px;
+    }
+
+    button {
+      padding: 12px 25px;
+      font-size: 16px;
+      background: #22c55e;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      color: white;
+    }
+
+    button:hover {
+      background: #16a34a;
+    }
+
+    .box {
+      margin-top: 25px;
+      padding: 15px;
+      border-radius: 10px;
+      background: #1e293b;
+      min-height: 50px;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>🎤 Voice to Text Assistant</h1>
+  <button onclick="startListening()">Start Listening</button>
+
+  <div class="box" id="speechText">Speech will appear here...</div>
+  <div class="box" id="answerText">Answer will appear here...</div>
+
+  <script>
+    const speechDiv = document.getElementById("speechText");
+    const answerDiv = document.getElementById("answerText");
+
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+      alert("Your browser does not support Speech Recognition. Use Google Chrome.");
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = "en-US";
+
+    recognition.onresult = function(event) {
+      let transcript = "";
+
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        transcript += event.results[i][0].transcript;
+      }
+
+      speechDiv.innerText = transcript;
+
+      checkIfQuestion(transcript);
+    };
+
+    function startListening() {
+      recognition.start();
+    }
+
+    function checkIfQuestion(text) {
+      const lowerText = text.toLowerCase();
+
+      if (
+        lowerText.startsWith("who") ||
+        lowerText.startsWith("what") ||
+        lowerText.startsWith("when") ||
+        lowerText.startsWith("where") ||
+        lowerText.startsWith("why") ||
+        lowerText.startsWith("how")
+      ) {
+        generateAnswer(lowerText);
+      }
+    }
+
+    function generateAnswer(question) {
+      let answer = "I am not sure about that.";
+
+      if (question.includes("your name")) {
+        answer = "My name is Voice Assistant.";
+      } 
+      else if (question.includes("time")) {
+        answer = "Current time is " + new Date().toLocaleTimeString();
+      }
+      else if (question.includes("date")) {
+        answer = "Today is " + new Date().toDateString();
+      }
+
+      answerDiv.innerText = answer;
+      speak(answer);
+    }
+
+    function speak(text) {
+      const speech = new SpeechSynthesisUtterance(text);
+      speech.lang = "en-US";
+      window.speechSynthesis.speak(speech);
+    }
+  </script>
+
+</body>
+</html>
