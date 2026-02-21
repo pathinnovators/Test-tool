@@ -1,149 +1,185 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>AI Voice Assistant</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta charset="UTF-8">
+<title>Live AI Voice Assistant</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #0f172a;
-      color: #ffffff;
-      text-align: center;
-      padding: 30px;
-    }
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    background: #0f172a;
+    color: white;
+    padding: 20px;
+    max-width: 900px;
+    margin: auto;
+  }
 
-    h1 {
-      margin-bottom: 20px;
-    }
+  h1 {
+    text-align: center;
+    margin-bottom: 15px;
+  }
 
-    button {
-      padding: 14px 30px;
-      font-size: 16px;
-      background: #22c55e;
-      border: none;
-      border-radius: 10px;
-      cursor: pointer;
-      color: #ffffff;
-    }
+  button {
+    width: 100%;
+    padding: 15px;
+    font-size: 18px;
+    background: #22c55e;
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    color: white;
+  }
 
-    button:hover {
-      background: #16a34a;
-    }
+  button.stop {
+    background: #ef4444;
+    margin-top: 10px;
+  }
 
-    .box {
-      margin-top: 20px;
-      padding: 15px;
-      border-radius: 10px;
-      background: #1e293b;
-      min-height: 60px;
-      text-align: left;
-      font-size: 15px;
-      line-height: 1.6;
-    }
+  .status {
+    text-align: center;
+    margin-top: 10px;
+    color: #22c55e;
+  }
 
-    .listening {
-      color: #22c55e;
-      margin-top: 10px;
-    }
-  </style>
+  .box {
+    margin-top: 20px;
+    padding: 15px;
+    border-radius: 12px;
+    background: #1e293b;
+    min-height: 80px;
+    line-height: 1.6;
+    white-space: pre-wrap;
+  }
+
+  .title {
+    font-weight: bold;
+    margin-bottom: 8px;
+    color: #93c5fd;
+  }
+</style>
 </head>
 
 <body>
 
-  <h1>🎤 AI Voice Assistant</h1>
+<h1>🎤 Live AI Voice Assistant</h1>
 
-  <button onclick="startListening()">Start Listening</button>
-  <div class="listening" id="status"></div>
+<button onclick="startListening()">Start Live Transcription</button>
+<button class="stop" onclick="stopListening()">Stop</button>
 
-  <div class="box">
-    <strong>You said:</strong>
-    <div id="speechText">---</div>
-  </div>
+<div class="status" id="status">Idle</div>
 
-  <div class="box">
-    <strong>AI Answer:</strong>
-    <div id="answerText">---</div>
-  </div>
+<div class="box">
+  <div class="title">Live Transcription</div>
+  <div id="liveText">Start speaking...</div>
+</div>
 
-  <script>
-    const speechDiv = document.getElementById("speechText");
-    const answerDiv = document.getElementById("answerText");
-    const statusDiv = document.getElementById("status");
+<div class="box">
+  <div class="title">Live AI Answer</div>
+  <div id="answerText">AI will respond here...</div>
+</div>
 
-    const SpeechRecognition =
-      window.SpeechRecognition || window.webkitSpeechRecognition;
+<script>
+const liveText = document.getElementById("liveText");
+const answerText = document.getElementById("answerText");
+const statusText = document.getElementById("status");
 
-    if (!SpeechRecognition) {
-      alert("Speech Recognition not supported. Please use Google Chrome.");
+const SpeechRecognition =
+  window.SpeechRecognition || window.webkitSpeechRecognition;
+
+if (!SpeechRecognition) {
+  alert("Speech Recognition not supported. Please use Google Chrome.");
+}
+
+const recognition = new SpeechRecognition();
+recognition.lang = "en-US";
+recognition.continuous = true;
+recognition.interimResults = true;
+
+let finalTranscript = "";
+let silenceTimer = null;
+
+function startListening() {
+  finalTranscript = "";
+  liveText.innerText = "";
+  answerText.innerText = "";
+  statusText.innerText = "🎙️ Listening...";
+  recognition.start();
+}
+
+function stopListening() {
+  recognition.stop();
+  statusText.innerText = "⏹️ Stopped";
+}
+
+recognition.onresult = (event) => {
+  let interim = "";
+
+  for (let i = event.resultIndex; i < event.results.length; i++) {
+    const text = event.results[i][0].transcript;
+    if (event.results[i].isFinal) {
+      finalTranscript += text + " ";
+    } else {
+      interim += text;
+    }
+  }
+
+  liveText.innerText = finalTranscript + interim;
+
+  // reset silence timer
+  clearTimeout(silenceTimer);
+  silenceTimer = setTimeout(() => {
+    recognition.stop();
+    sendToAI(finalTranscript.trim());
+  }, 1200); // auto-send after pause
+};
+
+recognition.onend = () => {
+  statusText.innerText = "⚡ Processing...";
+};
+
+async function sendToAI(question) {
+  if (!question) return;
+
+  answerText.innerText = "";
+  statusText.innerText = "🤖 AI Thinking...";
+
+  try {
+    const response = await fetch("https://YOUR_API_URL/ask", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ question })
+    });
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let aiText = "";
+
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+
+      const chunk = decoder.decode(value);
+      aiText += chunk;
+      answerText.innerText = aiText;
     }
 
-    const recognition = new SpeechRecognition();
-    recognition.lang = "en-US";
-    recognition.continuous = false;
-    recognition.interimResults = false;
+    statusText.innerText = "✅ Answer Ready";
+    speak(aiText);
 
-    function startListening() {
-      speechDiv.innerText = "";
-      answerDiv.innerText = "";
-      statusDiv.innerText = "🎙️ Listening...";
-      recognition.start();
-    }
+  } catch (err) {
+    answerText.innerText = "Error connecting to AI.";
+    statusText.innerText = "❌ Error";
+  }
+}
 
-    recognition.onresult = (event) => {
-      const transcript = event.results[0][0].transcript;
-      speechDiv.innerText = transcript;
-      statusDiv.innerText = "⚡ Processing...";
-      askAI(transcript);
-    };
-
-    recognition.onerror = () => {
-      statusDiv.innerText = "❌ Error listening. Try again.";
-    };
-
-    async function askAI(question) {
-      answerDiv.innerText = "";
-
-      try {
-        const response = await fetch("https://YOUR_API_URL/ask", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ question })
-        });
-
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder("utf-8");
-
-        let finalAnswer = "";
-
-        while (true) {
-          const { value, done } = await reader.read();
-          if (done) break;
-
-          const chunk = decoder.decode(value);
-          finalAnswer += chunk;
-          answerDiv.innerText = finalAnswer;
-        }
-
-        statusDiv.innerText = "✅ Answer ready";
-        speak(finalAnswer);
-
-      } catch (error) {
-        answerDiv.innerText = "Something went wrong. Please try again.";
-        statusDiv.innerText = "❌ Error";
-      }
-    }
-
-    function speak(text) {
-      if (!window.speechSynthesis) return;
-
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = "en-US";
-      utterance.rate = 1;
-      window.speechSynthesis.speak(utterance);
-    }
-  </script>
+function speak(text) {
+  if (!window.speechSynthesis) return;
+  const msg = new SpeechSynthesisUtterance(text);
+  msg.lang = "en-US";
+  window.speechSynthesis.speak(msg);
+}
+</script>
 
 </body>
 </html>
