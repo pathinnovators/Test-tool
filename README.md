@@ -2,14 +2,14 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Live AI Voice Assistant</title>
+<title>Live AI Transcription Assistant</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <style>
   body {
     font-family: Arial, sans-serif;
     background: #0f172a;
-    color: white;
+    color: #ffffff;
     padding: 20px;
     max-width: 900px;
     margin: auto;
@@ -22,19 +22,18 @@
 
   button {
     width: 100%;
-    padding: 15px;
-    font-size: 18px;
-    background: #22c55e;
-    border: none;
+    padding: 14px;
+    font-size: 16px;
     border-radius: 12px;
+    border: none;
     cursor: pointer;
-    color: white;
+    margin-top: 10px;
+    color: #fff;
   }
 
-  button.stop {
-    background: #ef4444;
-    margin-top: 10px;
-  }
+  .start { background: #22c55e; }
+  .stop { background: #ef4444; }
+  .save { background: #3b82f6; }
 
   .status {
     text-align: center;
@@ -47,7 +46,7 @@
     padding: 15px;
     border-radius: 12px;
     background: #1e293b;
-    min-height: 80px;
+    min-height: 100px;
     line-height: 1.6;
     white-space: pre-wrap;
   }
@@ -62,10 +61,11 @@
 
 <body>
 
-<h1>🎤 Live AI Voice Assistant</h1>
+<h1>🎤 Live AI Transcription Assistant</h1>
 
-<button onclick="startListening()">Start Live Transcription</button>
+<button class="start" onclick="startListening()">Start Live Transcription</button>
 <button class="stop" onclick="stopListening()">Stop</button>
+<button class="save" onclick="saveTranscript()">Save Transcript</button>
 
 <div class="status" id="status">Idle</div>
 
@@ -76,7 +76,7 @@
 
 <div class="box">
   <div class="title">Live AI Answer</div>
-  <div id="answerText">AI will respond here...</div>
+  <div id="answerText">AI response will appear here...</div>
 </div>
 
 <script>
@@ -126,12 +126,11 @@ recognition.onresult = (event) => {
 
   liveText.innerText = finalTranscript + interim;
 
-  // reset silence timer
   clearTimeout(silenceTimer);
   silenceTimer = setTimeout(() => {
     recognition.stop();
     sendToAI(finalTranscript.trim());
-  }, 1200); // auto-send after pause
+  }, 1000); // fast auto-send
 };
 
 recognition.onend = () => {
@@ -161,7 +160,7 @@ async function sendToAI(question) {
 
       const chunk = decoder.decode(value);
       aiText += chunk;
-      answerText.innerText = aiText;
+      answerText.innerText = aiText; // word-by-word streaming
     }
 
     statusText.innerText = "✅ Answer Ready";
@@ -177,7 +176,36 @@ function speak(text) {
   if (!window.speechSynthesis) return;
   const msg = new SpeechSynthesisUtterance(text);
   msg.lang = "en-US";
+  msg.rate = 1;
   window.speechSynthesis.speak(msg);
+}
+
+/* ===== SAVE TRANSCRIPT (OTTER.AI STYLE) ===== */
+function saveTranscript() {
+  if (!finalTranscript.trim()) {
+    alert("No transcript to save.");
+    return;
+  }
+
+  const content =
+`TRANSCRIPT
+-------------------------
+${finalTranscript}
+
+AI ANSWER
+-------------------------
+${answerText.innerText}
+`;
+
+  const blob = new Blob([content], { type: "text/plain" });
+  const url = URL.createObjectURL(blob);
+
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "ai_transcript.txt";
+  a.click();
+
+  URL.revokeObjectURL(url);
 }
 </script>
 
