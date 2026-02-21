@@ -1,16 +1,17 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Voice Assistant Web App</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <title>AI Voice Assistant</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <style>
     body {
       font-family: Arial, sans-serif;
-      text-align: center;
       background: #0f172a;
-      color: white;
-      padding: 40px;
+      color: #ffffff;
+      text-align: center;
+      padding: 30px;
     }
 
     h1 {
@@ -18,13 +19,13 @@
     }
 
     button {
-      padding: 12px 25px;
+      padding: 14px 30px;
       font-size: 16px;
       background: #22c55e;
       border: none;
-      border-radius: 8px;
+      border-radius: 10px;
       cursor: pointer;
-      color: white;
+      color: #ffffff;
     }
 
     button:hover {
@@ -32,101 +33,117 @@
     }
 
     .box {
-      margin-top: 25px;
+      margin-top: 20px;
       padding: 15px;
       border-radius: 10px;
       background: #1e293b;
-      min-height: 50px;
+      min-height: 60px;
+      text-align: left;
+      font-size: 15px;
+      line-height: 1.6;
+    }
+
+    .listening {
+      color: #22c55e;
+      margin-top: 10px;
     }
   </style>
 </head>
+
 <body>
 
-  <h1>🎤 Voice to Text Assistant</h1>
-  <button onclick="startListening()">Start Listening</button>
+  <h1>🎤 AI Voice Assistant</h1>
 
-  <div class="box" id="speechText">Speech will appear here...</div>
-  <div class="box" id="answerText">Answer will appear here...</div>
+  <button onclick="startListening()">Start Listening</button>
+  <div class="listening" id="status"></div>
+
+  <div class="box">
+    <strong>You said:</strong>
+    <div id="speechText">---</div>
+  </div>
+
+  <div class="box">
+    <strong>AI Answer:</strong>
+    <div id="answerText">---</div>
+  </div>
 
   <script>
     const speechDiv = document.getElementById("speechText");
     const answerDiv = document.getElementById("answerText");
+    const statusDiv = document.getElementById("status");
 
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const SpeechRecognition =
+      window.SpeechRecognition || window.webkitSpeechRecognition;
 
     if (!SpeechRecognition) {
-      alert("Your browser does not support Speech Recognition. Use Google Chrome.");
+      alert("Speech Recognition not supported. Please use Google Chrome.");
     }
 
     const recognition = new SpeechRecognition();
-    recognition.continuous = true;
-    recognition.interimResults = true;
     recognition.lang = "en-US";
-
-    recognition.onresult = function(event) {
-      let transcript = "";
-
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        transcript += event.results[i][0].transcript;
-      }
-
-      speechDiv.innerText = transcript;
-
-      checkIfQuestion(transcript);
-    };
+    recognition.continuous = false;
+    recognition.interimResults = false;
 
     function startListening() {
+      speechDiv.innerText = "";
+      answerDiv.innerText = "";
+      statusDiv.innerText = "🎙️ Listening...";
       recognition.start();
     }
 
-    function checkIfQuestion(text) {
-      const lowerText = text.toLowerCase();
+    recognition.onresult = (event) => {
+      const transcript = event.results[0][0].transcript;
+      speechDiv.innerText = transcript;
+      statusDiv.innerText = "⚡ Processing...";
+      askAI(transcript);
+    };
 
-      if (
-        lowerText.startsWith("who") ||
-        lowerText.startsWith("what") ||
-        lowerText.startsWith("when") ||
-        lowerText.startsWith("where") ||
-        lowerText.startsWith("why") ||
-        lowerText.startsWith("how")
-      ) {
-        generateAnswer(lowerText);
+    recognition.onerror = () => {
+      statusDiv.innerText = "❌ Error listening. Try again.";
+    };
+
+    async function askAI(question) {
+      answerDiv.innerText = "";
+
+      try {
+        const response = await fetch("https://YOUR_API_URL/ask", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ question })
+        });
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder("utf-8");
+
+        let finalAnswer = "";
+
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+
+          const chunk = decoder.decode(value);
+          finalAnswer += chunk;
+          answerDiv.innerText = finalAnswer;
+        }
+
+        statusDiv.innerText = "✅ Answer ready";
+        speak(finalAnswer);
+
+      } catch (error) {
+        answerDiv.innerText = "Something went wrong. Please try again.";
+        statusDiv.innerText = "❌ Error";
       }
     }
 
-    <script>
-async function generateAnswer(question) {
-  answerDiv.innerText = "Thinking... ⚡";
-
-  const response = await fetch("https://YOUR_API_URL/ask", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ question })
-  });
-
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
-  answerDiv.innerText = "";
-
-  while (true) {
-    const { value, done } = await reader.read();
-    if (done) break;
-
-    const text = decoder.decode(value);
-    answerDiv.innerText += text;
-  }
-
-  speak(answerDiv.innerText);
-}
-</script>
-
     function speak(text) {
-      const speech = new SpeechSynthesisUtterance(text);
-      speech.lang = "en-US";
-      window.speechSynthesis.speak(speech);
+      if (!window.speechSynthesis) return;
+
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = "en-US";
+      utterance.rate = 1;
+      window.speechSynthesis.speak(utterance);
     }
   </script>
 
 </body>
-
 </html>
