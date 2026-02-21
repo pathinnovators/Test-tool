@@ -17,14 +17,13 @@
 
   h1 {
     text-align: center;
-    margin-bottom: 15px;
   }
 
   button {
     width: 100%;
     padding: 14px;
     font-size: 16px;
-    border-radius: 12px;
+    border-radius: 10px;
     border: none;
     cursor: pointer;
     margin-top: 10px;
@@ -32,8 +31,8 @@
   }
 
   .start { background: #22c55e; }
-  .stop { background: #ef4444; }
-  .save { background: #3b82f6; }
+  .stop  { background: #ef4444; }
+  .save  { background: #3b82f6; }
 
   .status {
     text-align: center;
@@ -46,14 +45,14 @@
     padding: 15px;
     border-radius: 12px;
     background: #1e293b;
-    min-height: 100px;
+    min-height: 120px;
     line-height: 1.6;
     white-space: pre-wrap;
   }
 
   .title {
     font-weight: bold;
-    margin-bottom: 8px;
+    margin-bottom: 6px;
     color: #93c5fd;
   }
 </style>
@@ -63,7 +62,7 @@
 
 <h1>🎤 Live AI Transcription Assistant</h1>
 
-<button class="start" onclick="startListening()">Start Live Transcription</button>
+<button class="start" onclick="startListening()">Start</button>
 <button class="stop" onclick="stopListening()">Stop</button>
 <button class="save" onclick="saveTranscript()">Save Transcript</button>
 
@@ -71,24 +70,23 @@
 
 <div class="box">
   <div class="title">Live Transcription</div>
-  <div id="liveText">Start speaking...</div>
+  <div id="liveText">Waiting for speech…</div>
 </div>
 
 <div class="box">
-  <div class="title">Live AI Answer</div>
-  <div id="answerText">AI response will appear here...</div>
+  <div class="title">AI Answer (Live)</div>
+  <div id="answerText">Waiting for question…</div>
 </div>
 
 <script>
-const liveText = document.getElementById("liveText");
-const answerText = document.getElementById("answerText");
-const statusText = document.getElementById("status");
-
+/* =========================
+   SPEECH RECOGNITION
+========================= */
 const SpeechRecognition =
   window.SpeechRecognition || window.webkitSpeechRecognition;
 
 if (!SpeechRecognition) {
-  alert("Speech Recognition not supported. Please use Google Chrome.");
+  alert("Speech Recognition not supported. Use Google Chrome.");
 }
 
 const recognition = new SpeechRecognition();
@@ -96,9 +94,14 @@ recognition.lang = "en-US";
 recognition.continuous = true;
 recognition.interimResults = true;
 
-let finalTranscript = "";
-let silenceTimer = null;
+const liveText   = document.getElementById("liveText");
+const answerText = document.getElementById("answerText");
+const statusText = document.getElementById("status");
 
+let finalTranscript = "";
+let pauseTimer = null;
+
+/* START */
 function startListening() {
   finalTranscript = "";
   liveText.innerText = "";
@@ -107,41 +110,45 @@ function startListening() {
   recognition.start();
 }
 
+/* STOP */
 function stopListening() {
   recognition.stop();
   statusText.innerText = "⏹️ Stopped";
 }
 
+/* LIVE TRANSCRIPTION */
 recognition.onresult = (event) => {
-  let interim = "";
+  let interimText = "";
 
   for (let i = event.resultIndex; i < event.results.length; i++) {
     const text = event.results[i][0].transcript;
+
     if (event.results[i].isFinal) {
       finalTranscript += text + " ";
     } else {
-      interim += text;
+      interimText += text;
     }
   }
 
-  liveText.innerText = finalTranscript + interim;
+  // TRUE live transcription
+  liveText.innerText = finalTranscript + interimText;
 
-  clearTimeout(silenceTimer);
-  silenceTimer = setTimeout(() => {
+  // detect pause → send to AI
+  clearTimeout(pauseTimer);
+  pauseTimer = setTimeout(() => {
     recognition.stop();
     sendToAI(finalTranscript.trim());
-  }, 1000); // fast auto-send
+  }, 900); // FAST pause detection
 };
 
-recognition.onend = () => {
-  statusText.innerText = "⚡ Processing...";
-};
-
+/* =========================
+   AI STREAMING RESPONSE
+========================= */
 async function sendToAI(question) {
   if (!question) return;
 
+  statusText.innerText = "⚡ AI responding...";
   answerText.innerText = "";
-  statusText.innerText = "🤖 AI Thinking...";
 
   try {
     const response = await fetch("https://YOUR_API_URL/ask", {
@@ -152,60 +159,59 @@ async function sendToAI(question) {
 
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
-    let aiText = "";
+    let output = "";
 
     while (true) {
       const { value, done } = await reader.read();
       if (done) break;
 
-      const chunk = decoder.decode(value);
-      aiText += chunk;
-      answerText.innerText = aiText; // word-by-word streaming
+      output += decoder.decode(value);
+      answerText.innerText = output; // ULTRA-FAST STREAMING
     }
 
-    statusText.innerText = "✅ Answer Ready";
-    speak(aiText);
+    statusText.innerText = "✅ Done";
+    speak(output);
 
-  } catch (err) {
-    answerText.innerText = "Error connecting to AI.";
+  } catch (e) {
+    answerText.innerText = "AI connection failed.";
     statusText.innerText = "❌ Error";
   }
 }
 
+/* =========================
+   TEXT TO SPEECH
+========================= */
 function speak(text) {
   if (!window.speechSynthesis) return;
   const msg = new SpeechSynthesisUtterance(text);
   msg.lang = "en-US";
-  msg.rate = 1;
   window.speechSynthesis.speak(msg);
 }
 
-/* ===== SAVE TRANSCRIPT (OTTER.AI STYLE) ===== */
+/* =========================
+   SAVE TRANSCRIPT
+========================= */
 function saveTranscript() {
   if (!finalTranscript.trim()) {
-    alert("No transcript to save.");
+    alert("No transcript available.");
     return;
   }
 
   const content =
 `TRANSCRIPT
--------------------------
+--------------------
 ${finalTranscript}
 
 AI ANSWER
--------------------------
+--------------------
 ${answerText.innerText}
 `;
 
   const blob = new Blob([content], { type: "text/plain" });
-  const url = URL.createObjectURL(blob);
-
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "ai_transcript.txt";
-  a.click();
-
-  URL.revokeObjectURL(url);
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = "live_ai_transcript.txt";
+  link.click();
 }
 </script>
 
